@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3d2e">
+<title>Squeeze</title>
+<style>
+  :root {
+    --bg: #0f3d2e;
+    --panel: #154d3a;
+    --panel-2: #1b5c46;
+    --line: #2a6f57;
+    --text: #f2efe6;
+    --muted: #a9c4b8;
+    --accent: #e8c15a;
+    --accent-ink: #2a2000;
+    --red: #e0645c;
+    --blue: #6aa8e8;
+    --ok: #5cc98a;
+    --card: #fbfaf6;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 10px 16px 40px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .04em; }
+  .score { font-size: 13px; color: var(--muted); text-align: right; }
+  .score b { color: var(--text); font-size: 16px; }
+  button {
+    font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 0; min-height: 44px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  button.ghost { background: transparent; min-height: 0; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+  button:disabled { opacity: .3; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .seg button { min-height: 36px; padding: 4px 0; font-size: 14px; }
+  .seg .P.on { background: var(--blue); border-color: var(--blue); color: #08192b; font-weight: 700; }
+  .seg .B.on { background: var(--red); border-color: var(--red); color: #2b0806; font-weight: 700; }
+
+  .table { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; margin-bottom: 10px; }
+  .hand { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; }
+  .hand + .hand { border-top: 1px solid var(--line); }
+  .hand .who { font-size: 13px; font-weight: 700; }
+  .hand .who small { display: block; font-size: 10px; color: var(--accent); font-weight: 600; }
+  .hand.P .who { color: var(--blue); }
+  .hand.B .who { color: var(--red); }
+  .hand .cards { display: flex; gap: 4px; min-height: 50px; align-items: center; }
+  .hand .tot { font-size: 22px; font-weight: 700; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+  .mini { border-radius: 4px; }
+  .mini.now { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 10px; }
+  .caption { font-size: 13px; color: var(--muted); }
+  .big {
+    position: relative; width: min(56vw, 220px); aspect-ratio: 5 / 7; border-radius: 12px; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .big svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .back {
+    position: absolute; inset: 0; border-radius: 12px;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 4px, transparent 4px 10px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.12) 0 4px, transparent 4px 10px),
+      #8e2430;
+    border: 6px solid #f4efe6;
+    box-shadow: inset 0 0 0 2px #8e2430, 0 0 6px rgba(0,0,0,.6);
+  }
+  .verdict { font-size: 18px; font-weight: 700; min-height: 26px; }
+  .verdict.ok { color: var(--ok); }
+  .verdict.ng { color: var(--red); }
+
+  .pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .pad button { font-size: 18px; font-weight: 700; line-height: 1.1; }
+  .pad button small { display: block; font-size: 9px; font-weight: 500; color: var(--muted); }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .actions.one { grid-template-columns: 1fr; }
+
+  .hint { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-top: 10px; }
+  .hint-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+  .hint-head label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .probs { display: grid; gap: 4px; margin-top: 8px; }
+  .prob { display: grid; grid-template-columns: 26px 1fr 52px; gap: 8px; align-items: center; font-size: 13px; }
+  .prob .v { font-weight: 700; font-size: 16px; text-align: center; }
+  .prob .bar { height: 18px; background: var(--panel-2); border-radius: 4px; overflow: hidden; position: relative; }
+  .prob .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+  .prob .bar span { position: relative; padding-left: 6px; font-size: 11px; line-height: 18px; color: var(--text); mix-blend-mode: normal; }
+  .prob .p { text-align: right; font-variant-numeric: tabular-nums; }
+  .prob.zero { opacity: .3; }
+
+  .result { text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .result .win { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  .result .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .help { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Squeeze</h1>
+    <div class="score" id="score"></div>
+  </header>
+  <div class="seg" id="role"></div>
+  <div class="table" id="table"></div>
+  <div id="play"></div>
+  <div class="hint" id="hintBox">
+    <div class="hint-head">
+      <span>見えている範囲からの候補（残りのシューで計算）</span>
+      <label><input type="checkbox" id="hintToggle"> 表示</label>
+    </div>
+    <div class="probs" id="probs"></div>
+  </div>
+  <p class="help">カードの端から内側へドラッグするとめくれます。長辺から絞るとサイド、短辺から絞ると足が見えます。数字を当てたら0〜9をタップ（10・絵札は0）。8デッキのシューで、バカラのルールどおりに3枚目も配られます。</p>
+</main>
+
+<script>
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const VAL = { A:1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':0, J:0, Q:0, K:0 };
+const FACE = r => r === 'J' || r === 'Q' || r === 'K';
+const SUITS = [['♠', '#1d1d1f'], ['♥', '#c62828'], ['♦', '#c62828'], ['♣', '#1d1d1f']];
+const VS = '︎';
+const W = 50, H = 70, DECKS = 8;
+
+// マーク配置（50x70 のカード座標）
+const L = 14, C = 25, R = 36;
+const side = ys => ys.flatMap(y => [[L, y], [R, y]]);
+const mid = ys => ys.map(y => [C, y]);
+const Y3 = [12, 35, 58], Y4 = [12, 27.3, 42.7, 58];
+const PIPS = {
+  A: mid([35]),
+  '2': mid([12, 58]),
+  '3': mid([12, 35, 58]),
+  '4': side([12, 58]),
+  '5': [...side([12, 58]), ...mid([35])],
+  '6': side(Y3),
+  '7': [...side(Y3), ...mid([23.5])],
+  '8': [...side(Y3), ...mid([23.5, 46.5])],
+  '9': [...side(Y4), ...mid([35])],
+  '10': [...side(Y4), ...mid([19.7, 50.3])],
+};
+const pipR = r => r === 'A' ? 8 : 3.6;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+const S = {
+  role: store.get('squeeze.role', 'P'),
+  stats: store.get('squeeze.stats', { ok: 0, n: 0 }),
+  hint: store.get('squeeze.hint', true),
+  shoe: [], seen: {}, hands: { P: [], B: [] },
+  cur: null, phase: 'idle', winner: null,
+};
+
+// ---------- シュー ----------
+function newShoe() {
+  S.shoe = [];
+  for (let d = 0; d < DECKS; d++) for (let s = 0; s < 4; s++) for (const r of RANKS) S.shoe.push({ rank: r, suit: s });
+  for (let i = S.shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [S.shoe[i], S.shoe[j]] = [S.shoe[j], S.shoe[i]];
+  }
+  S.seen = {};
+}
+function markSeen(c) { S.seen[c.rank] = (S.seen[c.rank] || 0) + 1; }
+function draw(open) {
+  const c = { ...S.shoe.pop(), flip: Math.random() < .5, open };
+  if (open) markSeen(c);
+  return c;
+}
+const total = h => h.reduce((s, c) => s + VAL[c.rank], 0) % 10;
+const other = side => side === 'P' ? 'B' : 'P';
+
+// ---------- 進行（バカラのルール） ----------
+function newGame() {
+  if (S.shoe.length < 20) newShoe();
+  S.hands = { P: [], B: [] };
+  S.winner = null;
+  for (const side of ['P', 'B', 'P', 'B']) dealTo(side);
+  next();
+}
+function dealTo(side) { S.hands[side].push(draw(side !== S.role)); }
+
+function bankerDraws(b, p3) {
+  if (!p3) return b <= 5;
+  const v = VAL[p3.rank];
+  if (b <= 2) return true;
+  if (b === 3) return v !== 8;
+  if (b === 4) return v >= 2 && v <= 7;
+  if (b === 5) return v >= 4 && v <= 7;
+  if (b === 6) return v === 6 || v === 7;
+  return false;
+}
+
+function next() {
+  const hidden = S.hands[S.role].find(c => !c.open);
+  if (hidden) {
+    S.cur = { card: hidden, d: { l: 0, r: 0, t: 0, b: 0 }, guess: null };
+    S.phase = 'squeeze';
+    return render();
+  }
+  const P = S.hands.P, B = S.hands.B, pT = total(P), bT = total(B);
+  if (P.length === 2 && B.length === 2 && (pT >= 8 || bT >= 8)) return finish();
+  if (P.length === 2 && pT <= 5) { dealTo('P'); return next(); }
+  if (B.length === 2 && bankerDraws(bT, P[2])) { dealTo('B'); return next(); }
+  finish();
+}
+
+function finish() {
+  const pT = total(S.hands.P), bT = total(S.hands.B);
+  S.winner = pT > bT ? 'P' : bT > pT ? 'B' : 'T';
+  S.phase = 'done';
+  S.cur = null;
+  render();
+}
+
+function reveal(guess) {
+  const c = S.cur.card;
+  c.open = true;
+  markSeen(c);
+  S.cur.guess = guess;
+  S.cur.d = { l: 1, r: 0, t: 0, b: 0 };
+  if (guess !== null) {
+    S.stats.n++;
+    if (VAL[c.rank] === guess) S.stats.ok++;
+    store.set('squeeze.stats', S.stats);
+  }
+  S.phase = 'revealed';
+  render();
+}
+
+// ---------- 見えている範囲から候補を計算 ----------
+function signature(rank, flip, d) {
+  const l = d.l * W, r = W - d.r * W, t = d.t * H, b = H - d.b * H;
+  const vis = (x, y, rad) => x - rad < l || x + rad > r || y - rad < t || y + rad > b;
+  if (FACE(rank)) {
+    const s = [];
+    if (l > 9 || r < 41 || t > 9 || b < 61) s.push('F');
+    if (vis(25, 35, 7)) s.push('L' + rank);
+    return s.join('|');
+  }
+  return PIPS[rank]
+    .map(([x, y]) => flip ? [W - x, H - y] : [x, y])
+    .filter(([x, y]) => vis(x, y, pipR(rank)))
+    .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)},${pipR(rank)}`)
+    .sort().join('|');
+}
+
+function candidateProbs() {
+  const { card, d } = S.cur;
+  const obs = signature(card.rank, card.flip, d);
+  const byVal = Array.from({ length: 10 }, () => ({ w: 0, ranks: [] }));
+  let sum = 0;
+  for (const r of RANKS) {
+    if (signature(r, false, d) !== obs && signature(r, true, d) !== obs) continue;
+    const w = DECKS * 4 - (S.seen[r] || 0);
+    if (w <= 0) continue;
+    byVal[VAL[r]].w += w;
+    byVal[VAL[r]].ranks.push(r);
+    sum += w;
+  }
+  return byVal.map(x => ({ ...x, p: sum ? x.w / sum : 0 }));
+}
+
+// ---------- 描画 ----------
+function faceSvg(c, { index = true } = {}) {
+  const [glyph, color] = SUITS[c.suit];
+  let body;
+  if (FACE(c.rank)) {
+    body = `<rect x="9" y="9" width="32" height="52" rx="2" fill="#f6e7b8" stroke="#b8902e" stroke-width="1.2"/>
+      <rect x="12" y="12" width="26" height="46" rx="1" fill="none" stroke="${color}" stroke-width=".6" stroke-dasharray="2 1.5"/>
+      <text x="25" y="37" text-anchor="middle" font-size="17" font-weight="800" fill="${color}">${c.rank}</text>
+      <text x="25" y="47" text-anchor="middle" font-size="8" fill="${color}">${glyph}${VS}</text>`;
+  } else {
+    body = PIPS[c.rank].map(([x, y]) => {
+      const size = c.rank === 'A' ? 22 : 10;
+      const rot = y > 35 ? ` transform="rotate(180 ${x} ${y})"` : '';
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${size}" fill="${color}"${rot}>${glyph}${VS}</text>`;
+    }).join('');
+  }
+  const idx = index ? `<g fill="${color}" font-weight="700" text-anchor="middle">
+      <text x="5" y="8" font-size="6.5">${c.rank}</text><text x="5" y="14" font-size="5">${glyph}${VS}</text>
+      <g transform="rotate(180 25 35)"><text x="5" y="8" font-size="6.5">${c.rank}</text><text x="5" y="14" font-size="5">${glyph}${VS}</text></g></g>` : '';
+  const rot = c.flip ? ' transform="rotate(180 25 35)"' : '';
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <rect x=".5" y=".5" width="49" height="69" rx="4" fill="var(--card)" stroke="#d6d2c6"/>
+    <g${rot}>${body}</g>${idx}</svg>`;
+}
+
+function miniCard(c, now) {
+  const w = 36, h = 50;
+  if (c.open) return `<div class="mini" style="width:${w}px;height:${h}px">${faceSvg({ ...c, flip: false }).replace('<svg ', `<svg width="${w}" height="${h}" `)}</div>`;
+  return `<div class="mini back${now ? ' now' : ''}" style="position:relative;width:${w}px;height:${h}px;border-width:3px;border-radius:4px"></div>`;
+}
+
+function render() {
+  const { stats } = S;
+  document.getElementById('score').innerHTML =
+    `正解 <b>${stats.ok}/${stats.n}</b>${stats.n ? `（${Math.round(stats.ok / stats.n * 100)}%）` : ''}
+     <button class="ghost" data-act="clear">リセット</button>`;
+
+  document.getElementById('role').innerHTML = ['P', 'B'].map(s =>
+    `<button class="${s} ${S.role === s ? 'on' : ''}" data-role="${s}">${s === 'P' ? 'プレイヤー' : 'バンカー'}側で絞る</button>`).join('');
+
+  document.getElementById('table').innerHTML = ['P', 'B'].map(s => {
+    const h = S.hands[s];
+    const allOpen = h.every(c => c.open);
+    const openTot = total(h.filter(c => c.open));
+    return `<div class="hand ${s}">
+      <div class="who">${s === 'P' ? 'PLAYER' : 'BANKER'}${s === S.role ? '<small>あなた</small>' : ''}</div>
+      <div class="cards">${h.map(c => miniCard(c, S.cur && c === S.cur.card)).join('')}</div>
+      <div class="tot">${h.length ? (allOpen ? openTot : '?') : ''}</div></div>`;
+  }).join('');
+
+  const play = document.getElementById('play');
+  if (S.phase === 'done') {
+    const pT = total(S.hands.P), bT = total(S.hands.B);
+    const label = S.winner === 'T' ? 'タイ' : (S.winner === 'P' ? 'プレイヤー' : 'バンカー') + 'の勝ち';
+    const mine = S.winner === 'T' ? '' : S.winner === S.role ? '（あなたの勝ち）' : '（あなたの負け）';
+    play.innerHTML = `<div class="result"><div class="win">${label}</div>
+      <div class="sub">プレイヤー ${pT} − バンカー ${bT} ${mine}</div>
+      <button class="primary" style="width:100%" data-act="new">次のゲーム</button></div>`;
+  } else if (S.cur) {
+    const own = S.hands[S.role];
+    const n = own.indexOf(S.cur.card) + 1;
+    const c = S.cur.card;
+    let bottom;
+    if (S.phase === 'squeeze') {
+      bottom = `<div class="pad">${[1,2,3,4,5,6,7,8,9,0].map(v =>
+        `<button data-guess="${v}">${v}<small>${v === 1 ? 'A' : v === 0 ? '10・絵札' : '&nbsp;'}</small></button>`).join('')}</div>
+        <div class="actions one"><button data-act="pass">当てずにめくる</button></div>`;
+    } else {
+      const ok = S.cur.guess !== null && VAL[c.rank] === S.cur.guess;
+      bottom = `<div class="actions one"><button class="primary" data-act="next">次へ</button></div>`;
+      S.cur.verdict = S.cur.guess === null ? '' : ok ? `○ 正解！ ${c.rank}（${VAL[c.rank]}）` : `× ハズレ… ${c.rank}（${VAL[c.rank]}）／予想 ${S.cur.guess}`;
+      S.cur.ok = ok;
+    }
+    play.innerHTML = `<div class="stage">
+        <div class="caption">${n}枚目を絞る</div>
+        <div class="big" id="big">${faceSvg(c, { index: S.phase !== 'squeeze' })}<div class="back" id="back"></div></div>
+        <div class="verdict ${S.cur.ok ? 'ok' : 'ng'}">${S.phase === 'revealed' ? S.cur.verdict : ''}</div>
+      </div>${bottom}`;
+    updatePeel();
+  }
+  renderHint();
+}
+
+function updatePeel() {
+  const back = document.getElementById('back');
+  if (!back || !S.cur) return;
+  const { d } = S.cur;
+  if (S.phase !== 'squeeze') { back.style.display = 'none'; return; }
+  back.style.clipPath = `inset(${d.t * 100}% ${d.r * 100}% ${d.b * 100}% ${d.l * 100}%)`;
+}
+
+function renderHint() {
+  const box = document.getElementById('hintBox');
+  document.getElementById('hintToggle').checked = S.hint;
+  box.style.display = S.phase === 'squeeze' ? '' : 'none';
+  const el = document.getElementById('probs');
+  if (!S.hint || S.phase !== 'squeeze') { el.innerHTML = ''; return; }
+  const probs = candidateProbs();
+  el.innerHTML = [1,2,3,4,5,6,7,8,9,0].map(v => {
+    const x = probs[v];
+    return `<div class="prob ${x.p ? '' : 'zero'}"><div class="v">${v}</div>
+      <div class="bar"><i style="width:${x.p * 100}%"></i><span>${x.ranks.join(' ')}</span></div>
+      <div class="p">${(x.p * 100).toFixed(1)}%</div></div>`;
+  }).join('');
+}
+
+// ---------- 操作 ----------
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const big = e.target.closest('#big');
+  if (!big || S.phase !== 'squeeze') return;
+  const rect = big.getBoundingClientRect();
+  const u = (e.clientX - rect.left) / rect.width, v = (e.clientY - rect.top) / rect.height;
+  // 一番近い辺からめくる
+  const dist = { l: u * rect.width, r: (1 - u) * rect.width, t: v * rect.height, b: (1 - v) * rect.height };
+  const edge = Object.keys(dist).reduce((a, k) => dist[k] < dist[a] ? k : a);
+  drag = { rect, edge, id: e.pointerId };
+  big.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { rect, edge } = drag;
+  const u = (e.clientX - rect.left) / rect.width, v = (e.clientY - rect.top) / rect.height;
+  const depth = { l: u, r: 1 - u, t: v, b: 1 - v }[edge];
+  const d = S.cur.d;
+  d[edge] = Math.min(.95, Math.max(d[edge], depth));
+  updatePeel();
+  renderHint();
+});
+const endDrag = () => { drag = null; };
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  if (b.dataset.role) {
+    if (S.role === b.dataset.role) return;
+    S.role = b.dataset.role;
+    store.set('squeeze.role', S.role);
+    newGame();
+  } else if (b.dataset.guess !== undefined) reveal(Number(b.dataset.guess));
+  else if (b.dataset.act === 'pass') reveal(null);
+  else if (b.dataset.act === 'next') next();
+  else if (b.dataset.act === 'new') newGame();
+  else if (b.dataset.act === 'clear') { S.stats = { ok: 0, n: 0 }; store.set('squeeze.stats', S.stats); render(); }
+});
+document.getElementById('hintToggle').addEventListener('change', e => {
+  S.hint = e.target.checked;
+  store.set('squeeze.hint', S.hint);
+  renderHint();
+});
+
+newShoe();
+newGame();
+</script>
+</body>
+</html>
